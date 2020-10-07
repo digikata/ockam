@@ -112,6 +112,7 @@ impl KeyExchange for SymmetricState {
             secret_handle,
             public_key,
             self.state.ck.as_ref(),
+            &[],
             SHA256_SIZE + AES256_KEYSIZE,
         )
     }
@@ -190,7 +191,12 @@ impl KeyExchange for SymmetricState {
     /// Split step in Noise protocol
     fn split(&mut self) -> Result<Vec<u8>, VaultFailError> {
         let mut vault = self.vault.lock().unwrap();
-        vault.hkdf_sha256(self.state.ck.as_ref(), &[], AES256_KEYSIZE + AES256_KEYSIZE)
+        vault.hkdf_sha256(
+            self.state.ck.as_ref(),
+            &[],
+            &[],
+            AES256_KEYSIZE + AES256_KEYSIZE,
+        )
     }
 
     /// Set this state up to send and receive messages

@@ -181,27 +181,29 @@ impl Vault for FilesystemVault {
     /// and the specified uncompressed public key and return the HKDF-SHA256
     ///
     /// output using the DH value as the HKDF ikm
-    fn ec_diffie_hellman_hkdf_sha256<B: AsRef<[u8]>>(
+    fn ec_diffie_hellman_hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>>(
         &mut self,
         context: SecretKeyContext,
         peer_public_key: PublicKey,
         salt: B,
+        info: C,
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError> {
         self.v
-            .ec_diffie_hellman_hkdf_sha256(context, peer_public_key, salt, okm_len)
+            .ec_diffie_hellman_hkdf_sha256(context, peer_public_key, salt, info, okm_len)
     }
 
     /// Compute the HKDF-SHA256 using the specified salt and input key material
     ///
     /// and return the output key material of the specified length
-    fn hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>>(
+    fn hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>, D: AsRef<[u8]>>(
         &mut self,
         salt: B,
-        ikm: C,
+        info: C,
+        ikm: D,
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError> {
-        self.v.hkdf_sha256(salt, ikm, okm_len)
+        self.v.hkdf_sha256(salt, info, ikm, okm_len)
     }
 
     /// Encrypt a payload using AES-GCM
@@ -230,6 +232,23 @@ impl Vault for FilesystemVault {
     /// Close and release all resources in use by the vault
     fn deinit(&mut self) {
         self.v.deinit()
+    }
+
+    fn sign<B: AsRef<[u8]>>(
+        &mut self,
+        secret_key: SecretKeyContext,
+        data: B,
+    ) -> Result<[u8; 64], VaultFailError> {
+        self.v.sign(secret_key, data)
+    }
+
+    fn verify<B: AsRef<[u8]>>(
+        &mut self,
+        signature: [u8; 64],
+        public_key: PublicKey,
+        data: B,
+    ) -> Result<(), VaultFailError> {
+        self.v.verify(signature, public_key, data)
     }
 }
 

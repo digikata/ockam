@@ -97,19 +97,21 @@ pub trait Vault: Zeroize {
     /// Compute Elliptic-Curve Diffie-Hellman using this secret key
     /// and the specified uncompressed public key and return the HKDF-SHA256
     /// output using the DH value as the HKDF ikm
-    fn ec_diffie_hellman_hkdf_sha256<B: AsRef<[u8]>>(
+    fn ec_diffie_hellman_hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>>(
         &mut self,
         context: SecretKeyContext,
         peer_public_key: PublicKey,
         salt: B,
+        info: C,
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError>;
     /// Compute the HKDF-SHA256 using the specified salt and input key material
     /// and return the output key material of the specified length
-    fn hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>>(
+    fn hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>, D: AsRef<[u8]>>(
         &mut self,
         salt: B,
-        ikm: C,
+        info: C,
+        ikm: D,
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError>;
     /// Encrypt a payload using AES-GCM
@@ -130,6 +132,19 @@ pub trait Vault: Zeroize {
     ) -> Result<Vec<u8>, VaultFailError>;
     /// Close and release all resources in use by the vault
     fn deinit(&mut self);
+    /// Generate a signature
+    fn sign<B: AsRef<[u8]>>(
+        &mut self,
+        secret_key: SecretKeyContext,
+        data: B,
+    ) -> Result<[u8; 64], VaultFailError>;
+    /// Verify a signature
+    fn verify<B: AsRef<[u8]>>(
+        &mut self,
+        signature: [u8; 64],
+        public_key: PublicKey,
+        data: B,
+    ) -> Result<(), VaultFailError>;
 }
 
 /// The `DynVault` trait is a modification of `Vault` trait suitable
@@ -179,6 +194,7 @@ pub trait DynVault {
         context: SecretKeyContext,
         peer_public_key: PublicKey,
         salt: &[u8],
+        info: &[u8],
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError>;
     /// Compute the HKDF-SHA256 using the specified salt and input key material
@@ -186,6 +202,7 @@ pub trait DynVault {
     fn hkdf_sha256(
         &mut self,
         salt: &[u8],
+        info: &[u8],
         ikm: &[u8],
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError>;
@@ -207,6 +224,19 @@ pub trait DynVault {
     ) -> Result<Vec<u8>, VaultFailError>;
     /// Close and release all resources in use by the vault
     fn deinit(&mut self);
+    /// Generate a signature
+    fn sign(
+        &mut self,
+        secret_key: SecretKeyContext,
+        data: &[u8],
+    ) -> Result<[u8; 64], VaultFailError>;
+    /// Verify a signature
+    fn verify(
+        &mut self,
+        signature: [u8; 64],
+        public_key: PublicKey,
+        data: &[u8],
+    ) -> Result<(), VaultFailError>;
 }
 
 impl<D: Vault + Send + Sync + 'static> DynVault for D {
@@ -268,18 +298,20 @@ impl<D: Vault + Send + Sync + 'static> DynVault for D {
         context: SecretKeyContext,
         peer_public_key: PublicKey,
         salt: &[u8],
+        info: &[u8],
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError> {
-        Vault::ec_diffie_hellman_hkdf_sha256(self, context, peer_public_key, salt, okm_len)
+        Vault::ec_diffie_hellman_hkdf_sha256(self, context, peer_public_key, salt, info, okm_len)
     }
 
     fn hkdf_sha256(
         &mut self,
         salt: &[u8],
         ikm: &[u8],
+        info: &[u8],
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError> {
-        Vault::hkdf_sha256(self, salt, ikm, okm_len)
+        Vault::hkdf_sha256(self, salt, info, ikm, okm_len)
     }
 
     fn aead_aes_gcm_encrypt(
@@ -304,5 +336,22 @@ impl<D: Vault + Send + Sync + 'static> DynVault for D {
 
     fn deinit(&mut self) {
         Vault::deinit(self)
+    }
+
+    fn sign(
+        &mut self,
+        secret_key: SecretKeyContext,
+        data: &[u8],
+    ) -> Result<[u8; 64], VaultFailError> {
+        Vault::sign(self, secret_key, data)
+    }
+
+    fn verify(
+        &mut self,
+        signature: [u8; 64],
+        public_key: PublicKey,
+        data: &[u8],
+    ) -> Result<(), VaultFailError> {
+        Vault::verify(self, signature, public_key, data)
     }
 }

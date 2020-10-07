@@ -1,13 +1,21 @@
-use crate::{error::*, types::*, Vault};
+use crate::{
+    error::{VaultFailError, VaultFailErrorKind},
+    types::*,
+    Vault,
+};
 use aead::{generic_array::GenericArray, Aead, NewAead, Payload};
 use aes_gcm::{Aes128Gcm, Aes256Gcm};
 use p256::{
+    ecdsa::{
+        signature::{Signer, Verifier},
+        Signature, SigningKey, VerifyKey,
+    },
     elliptic_curve::{sec1::FromEncodedPoint, Group},
     AffinePoint, ProjectivePoint, Scalar,
 };
 use rand::{prelude::*, rngs::OsRng};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, convert::TryFrom};
 use zeroize::Zeroize;
 
 /// A pure rust implementation of a vault.
@@ -293,11 +301,12 @@ impl Vault for DefaultVault {
         self.secret_import(&secret, attributes)
     }
 
-    fn ec_diffie_hellman_hkdf_sha256<B: AsRef<[u8]>>(
+    fn ec_diffie_hellman_hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>>(
         &mut self,
         context: SecretKeyContext,
         peer_public_key: PublicKey,
         salt: B,
+        info: C,
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError> {
         let entry = self.get_entry(context, VaultFailErrorKind::Ecdh)?;
@@ -335,19 +344,20 @@ impl Vault for DefaultVault {
         }?;
         let mut okm = vec![0u8; okm_len];
         let prk = hkdf::Hkdf::<Sha256>::new(Some(salt.as_ref()), &value);
-        prk.expand(b"", okm.as_mut_slice())?;
+        prk.expand(info.as_ref(), okm.as_mut_slice())?;
         Ok(okm)
     }
 
-    fn hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>>(
+    fn hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>, D: AsRef<[u8]>>(
         &mut self,
         salt: B,
-        ikm: C,
+        info: C,
+        ikm: D,
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError> {
         let mut okm = vec![0u8; okm_len];
         let prk = hkdf::Hkdf::<Sha256>::new(Some(salt.as_ref()), ikm.as_ref());
-        prk.expand(b"", okm.as_mut_slice())?;
+        prk.expand(info.as_ref(), okm.as_mut_slice())?;
         Ok(okm)
     }
 
@@ -389,6 +399,56 @@ impl Vault for DefaultVault {
 
     fn deinit(&mut self) {
         self.zeroize();
+    }
+
+    fn sign<B: AsRef<[u8]>>(
+        &mut self,
+        secret_key: SecretKeyContext,
+        data: B,
+    ) -> Result<[u8; 64], VaultFailError> {
+        let entry = self.get_entry(secret_key, VaultFailErrorKind::Ecdh)?;
+        match entry.key {
+            SecretKey::Curve25519(k) => {
+                // Libsodium and Signal convert from x25519 secret key this way
+                let hash = sha2::Sha512::digest(&k);
+                let key = ed25519_dalek::SecretKey::from_bytes(&hash[..32])?;
+                let pubkey = ed25519_dalek::PublicKey::from(&key);
+                let sign_key = ed25519_dalek::ExpandedSecretKey::from(&key);
+                let sig = sign_key.sign(data.as_ref(), &pubkey);
+                Ok(sig.to_bytes())
+            }
+            SecretKey::P256(k) => {
+                let sign_key = SigningKey::new(&k)?;
+                let sig = sign_key.sign(data.as_ref());
+                Ok(*array_ref![sig.as_ref(), 0, 64])
+            }
+            _ => Err(VaultFailError::from_msg(
+                VaultFailErrorKind::Ecdh,
+                "Unhandled key type",
+            )),
+        }
+    }
+
+    fn verify<B: AsRef<[u8]>>(
+        &mut self,
+        signature: [u8; 64],
+        public_key: PublicKey,
+        data: B,
+    ) -> Result<(), VaultFailError> {
+        match public_key {
+            PublicKey::Curve25519(k) => {
+                let key = ed25519_dalek::PublicKey::from_bytes(&k)?;
+                let sig = ed25519_dalek::Signature::new(signature);
+                key.verify(data.as_ref(), &sig)?;
+                Ok(())
+            }
+            PublicKey::P256(k) => {
+                let key = VerifyKey::new(&k)?;
+                let sig = Signature::try_from(&signature[..])?;
+                key.verify(data.as_ref(), &sig)?;
+                Ok(())
+            }
+        }
     }
 }
 

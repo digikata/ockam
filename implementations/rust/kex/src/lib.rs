@@ -138,5 +138,7 @@ pub mod error;
 #[cfg(feature = "ffi")]
 /// FFI module
 pub mod ffi;
+/// Implementation of Signal's X3DH
+pub mod x3dh;
 /// Implementation of Noise XX Pattern
 pub mod xx;
