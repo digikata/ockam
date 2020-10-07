@@ -39,7 +39,6 @@ pub mod router {
                             break;
                         }
                         OckamCommand::Router(RouterCommand::Register(a_type, tx)) => {
-                            println!("Registering");
                             got = true;
                             self.registry[a_type as usize] = Option::Some(tx);
                         }

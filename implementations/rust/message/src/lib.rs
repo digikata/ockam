@@ -36,7 +36,6 @@ pub mod message {
         pub message_body: Vec<u8>,
     }
 
-    #[repr(u8)]
     #[derive(Copy, Clone, Debug)]
     pub enum MessageType {
         Ping = 0,
@@ -45,7 +44,7 @@ pub mod message {
         KeyAgreementM1 = 3,
         KeyAgreementM2 = 4,
         KeyAgreementM3 = 5,
-        None = 2^15,
+        None = 255,
     }
 
     impl Default for Message {

@@ -471,12 +471,20 @@ impl KeyExchanger for XXInitiator {
                 self.state = InitiatorState::DecodeMessage2;
                 Ok(msg)
             }
+            // InitiatorState::DecodeMessage2 => {
+            //     let msg_a = self.initiator.decode_message_2(data)?;
+            //     self.state = InitiatorState::EncodeMessage3;
+            //     //let msg = self.initiator.encode_message_3(data)?;
+            //     let msg_b = self.initiator.encode_message_3(msg_a)?;
+            //     self.state = InitiatorState::Done;
+            //     Ok(msg_b)
+            // }
             InitiatorState::DecodeMessage2 => {
                 let msg = self.initiator.decode_message_2(data)?;
                 self.state = InitiatorState::EncodeMessage3;
-            //     Ok(msg)
-            // }
-            // InitiatorState::EncodeMessage3 => {
+                Ok(msg)
+            }
+            InitiatorState::EncodeMessage3 => {
                 let msg = self.initiator.encode_message_3(data)?;
                 self.state = InitiatorState::Done;
                 Ok(msg)
@@ -507,9 +515,9 @@ impl KeyExchanger for XXResponder {
                 }
                 let msg = self.responder.decode_message_1(data)?;
                 self.state = ResponderState::EncodeMessage2;
-//                Ok(msg)
-//            }
-//            ResponderState::EncodeMessage2 => {
+               Ok(msg)
+           }
+           ResponderState::EncodeMessage2 => {
                 let msg = self.responder.encode_message_2(data)?;
                 self.state = ResponderState::DecodeMessage3;
                 Ok(msg)
