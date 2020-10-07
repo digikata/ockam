@@ -72,7 +72,8 @@ pub mod transport {
                         let mut v = vec![];
                         // println!("Transport sending to route:");
                         // m.onward_route.print_route();
-                        // println!("Message type {:?} length {}", &m.message_type, &m.message_body.len());
+                        // println!("Message type {:?} length {}", &m.message_type,
+                        // &m.message_body.len());
                         Message::encode(m, &mut v);
                         match self
                             .socket
@@ -100,15 +101,11 @@ pub mod transport {
                     // println!("{:?}", b);
                     match Message::decode(&buff[0..s]) {
                         Ok((mut m, _unused)) => {
-                            // println!("onward route:");
-                            // m.onward_route.print_route();
-                            // match m.message_type {
-                            //     MessageType::Payload => {
-                            //         println!("Payload: {}", std::str::from_utf8(&m.message_body).unwrap());
-                            //     }
-                            //     _ => {}
-                            // }
-                            if m.onward_route.addresses[0].a_type == AddressType::Udp {
+                            println!("onward route:");
+                            m.onward_route.print_route();
+                            if !m.onward_route.addresses.is_empty()
+                                && m.onward_route.addresses[0].a_type == AddressType::Udp
+                            {
                                 match self.send_message(m) {
                                     Err(s) => Err(s),
                                     Ok(()) => Ok(true),
