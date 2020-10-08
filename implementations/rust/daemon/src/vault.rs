@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fs;
 use std::path::PathBuf;
 
-use ockam_vault::{error::*, software::DefaultVault, types::*, Vault};
+use ockam_vault::{error::*, software::DefaultVault, types::*, DynVault};
 
 use zeroize::Zeroize;
 
@@ -93,14 +93,14 @@ fn fs_write_secret(
     }
 }
 
-impl Vault for FilesystemVault {
+impl DynVault for FilesystemVault {
     /// Generate random bytes and fill them into `data`
     fn random(&mut self, data: &mut [u8]) -> Result<(), VaultFailError> {
         self.v.random(data)
     }
 
     /// Compute the SHA-256 digest given input `data`
-    fn sha256<B: AsRef<[u8]>>(&self, data: B) -> Result<[u8; 32], VaultFailError> {
+    fn sha256(&self, data: &[u8]) -> Result<[u8; 32], VaultFailError> {
         self.v.sha256(data)
     }
 
@@ -181,11 +181,11 @@ impl Vault for FilesystemVault {
     /// and the specified uncompressed public key and return the HKDF-SHA256
     ///
     /// output using the DH value as the HKDF ikm
-    fn ec_diffie_hellman_hkdf_sha256<B: AsRef<[u8]>>(
+    fn ec_diffie_hellman_hkdf_sha256(
         &mut self,
         context: SecretKeyContext,
         peer_public_key: PublicKey,
-        salt: B,
+        salt: &[u8],
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError> {
         self.v
@@ -195,33 +195,33 @@ impl Vault for FilesystemVault {
     /// Compute the HKDF-SHA256 using the specified salt and input key material
     ///
     /// and return the output key material of the specified length
-    fn hkdf_sha256<B: AsRef<[u8]>, C: AsRef<[u8]>>(
+    fn hkdf_sha256(
         &mut self,
-        salt: B,
-        ikm: C,
+        salt: &[u8],
+        ikm: &[u8],
         okm_len: usize,
     ) -> Result<Vec<u8>, VaultFailError> {
         self.v.hkdf_sha256(salt, ikm, okm_len)
     }
 
     /// Encrypt a payload using AES-GCM
-    fn aead_aes_gcm_encrypt<B: AsRef<[u8]>, C: AsRef<[u8]>, D: AsRef<[u8]>>(
+    fn aead_aes_gcm_encrypt(
         &mut self,
         context: SecretKeyContext,
-        plaintext: B,
-        nonce: C,
-        aad: D,
+        plaintext: &[u8],
+        nonce: &[u8],
+        aad: &[u8],
     ) -> Result<Vec<u8>, VaultFailError> {
         self.v.aead_aes_gcm_encrypt(context, plaintext, nonce, aad)
     }
 
     /// Decrypt a payload using AES-GCM
-    fn aead_aes_gcm_decrypt<B: AsRef<[u8]>, C: AsRef<[u8]>, D: AsRef<[u8]>>(
+    fn aead_aes_gcm_decrypt(
         &mut self,
         context: SecretKeyContext,
-        cipher_text: B,
-        nonce: C,
-        aad: D,
+        cipher_text: &[u8],
+        nonce: &[u8],
+        aad: &[u8],
     ) -> Result<Vec<u8>, VaultFailError> {
         self.v
             .aead_aes_gcm_decrypt(context, cipher_text, nonce, aad)
