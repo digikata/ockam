@@ -42,8 +42,7 @@ task cargoFmt {
 task cargoClippy {
   doLast {
     exec {
-      //commandLine 'cargo', 'clippy', '--all', '--', '-D', 'warnings'
-      commandLine 'echo', 'clippy'
+      commandLine 'cargo', 'clippy', '--all', '--', '-D', 'warnings'
     }
   }
 }

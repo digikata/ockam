@@ -66,7 +66,6 @@ fn main() {
 
     let llvm_config = {
         if let Ok(config) = which("llvm-config") {
-            println!("cargo:warning=Test");
             Some(config)
         } else if let Some(llvm_prefix) = env::var_os(ENV_LLVM_PREFIX) {
             let config = PathBuf::from(llvm_prefix).join("bin/llvm-config");
@@ -82,11 +81,9 @@ fn main() {
 
     // Generate bindings if llvm-config is present
     if let Some(llvm_config) = llvm_config {
-        println!("cargo:warning=Test1");
         let src_file = root.join("implementations/rust/c/bindings/src/bindings.rs");
         generate_bindings(llvm_config, include_dirs, &src_file);
     } else {
-        println!("cargo:warning=Test2");
         println!("cargo:error=LLVM_PREFIX was not set, and cannot find llvm-config, will not regenerate bindings");
     }
 }
